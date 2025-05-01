@@ -1,8 +1,13 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'maven:3.8.6-openjdk-11'
+            args '-v /root/.m2:/root/.m2' // Caches Maven dependencies
+        }
+    }
 
     environment {
-        IMAGE_NAME = 'financeme-app'
+        APP_NAME = "FinanceMe"
     }
 
     stages {
@@ -12,30 +17,28 @@ pipeline {
             }
         }
 
-        stage('Build with Maven') {
+        stage('Build') {
             steps {
-                sh './mvnw clean package -DskipTests'
+                sh 'mvn clean install'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Test') {
             steps {
-                sh 'docker build -t $IMAGE_NAME .'
+                sh 'mvn test'
             }
         }
 
-        stage('Run Container') {
+        stage('Package') {
             steps {
-                sh 'docker rm -f $IMAGE_NAME || true'
-                sh 'docker run -d -p 8080:8080 --name $IMAGE_NAME $IMAGE_NAME'
+                sh 'mvn package'
             }
         }
-    }
 
-    post {
-        always {
-            echo 'Cleaning workspace...'
-            cleanWs()
+        stage('Archive Artifact') {
+            steps {
+                archiveArtifacts artifacts: 'target/*.jar', fingerprint: true
+            }
         }
     }
 }
